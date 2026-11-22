@@ -1,0 +1,47 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unpack source
+        run: unzip -o PokerHUD-source.zip
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Rename
+        run: cp app/build/outputs/apk/release/app-release.apk PokerHUD.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PokerHUD
+          path: PokerHUD.apk
+
+      - name: Publish as the "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest PokerHUD.apk \
+            --title "Poker HUD (build ${{ github.run_number }})" \
+            --notes "Download PokerHUD.apk on your phone and open it to install."
